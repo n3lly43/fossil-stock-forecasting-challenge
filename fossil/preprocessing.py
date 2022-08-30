@@ -4,7 +4,6 @@ import numpy as np
 from tqdm.notebook import tqdm
 from .config import ModelsConfig
 
-from torch.utils.data import Dataset
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler,MinMaxScaler
 
