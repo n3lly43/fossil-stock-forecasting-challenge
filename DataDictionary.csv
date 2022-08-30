@@ -1,0 +1,50 @@
+Column Name,Description
+sku_name,Product SKU
+starting_inventory,"Starting inventory at the beginning of the month that is 
+at the dome and unclaimed by a retailer"
+sellin,"The sellin or demand. What is sold in to our customers. 
+This is what we are trying to predict 4 months from now (Dependent)"
+sellin_channel_1,The sellin for channel 1
+sellin_channel_2,The sellin for channel 2
+sellin_channel_3,The sellin for channel 3
+sellin_channel_4,The sellin for channel 4
+sellin_channel_5,The sellin for channel 5
+sellin_channel_6,The sellin for channel 6
+sellin_channel_7,The sellin for channel 7
+sellin_channel_8,The sellin for channel 8
+sellout,What is sold to the final customer
+onhand_inventory,Onhand customer side inventory
+sellout_channel_1,The sellout for channel 1
+sellout_channel_2,The sellout for channel 2
+sellout_channel_3,The sellout for channel 3
+sellout_channel_4,The sellout for channel 4
+sellout_channel_5,The sellout for channel 5
+sellout_channel_6,The sellout for channel 6
+sellout_channel_7,The sellout for channel 7
+sellout_channel_8,The sellout for channel 8
+sellout_channel_9,The sellout for channel 9
+sellout_channel_10,The sellout for channel 10
+onhand_inventory_channel_1,The onhand inventory for channel 1
+onhand_inventory_channel_2,The onhand inventory for channel 2
+onhand_inventory_channel_3,The onhand inventory for channel 3
+onhand_inventory_channel_4,The onhand inventory for channel 4
+onhand_inventory_channel_5,The onhand inventory for channel 5
+onhand_inventory_channel_6,The onhand inventory for channel 6
+onhand_inventory_channel_7,The onhand inventory for channel 7
+onhand_inventory_channel_8,The onhand inventory for channel 8
+onhand_inventory_channel_9,The onhand inventory for channel 9
+onhand_inventory_channel_10,The onhand inventory for channel 10
+price,Retail Price
+month,The respective month for the data
+year,The respective year for the data
+product_lifecycle_stage,What stage of its lifecycle the product is in
+FLAG100,"Flag for if SKU was discounted that month.
+If the mean of sales amount is less than the mean of the unit price even by a small percentage then that month is marked as discounted variable"
+disc_month,"Flag for if SKU was discounted that month.
+If the mean of sales amount is less than 10% of the mean of the unit price and if number of units sold in that month is greater than median of total number of SKUs sold across the months then that month is marked as discounted"
+cum_disc,"The effect of a discount may not be captured by a single month, but with an spread across months signal instead. This variable is intended to capture this effect.
+This variable is to capture the effect of discount in the previous 3 months if any. And is derived from the disc_month variable"
+CAT_GENDER_BOTH,SKU is male and female
+CAT_GENDER_MEN,SKU is male
+CAT_GENDER_WOMEN,SKU is female
+Weeks,The number of weekends that certain month had
