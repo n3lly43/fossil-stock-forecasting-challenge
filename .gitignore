@@ -176,3 +176,5 @@ models/
  
 # Catboost
 catboost_info
+
+lgb_cv_model_step*
