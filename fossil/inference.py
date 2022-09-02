@@ -77,15 +77,14 @@ def make_predictions(test_df, test_data, feature_cols, target_cols, pred_cols, c
     test_preds = {}
 
     for i in range(len(ModelsConfig.models)):
-        primary_preds = gbdt_models.forecast(test_data, feature_cols, target_cols, cv_models[f'primary_{i}'], True, True, True)
+        primary_preds = gbdt_models.forecast(test_data, feature_cols, target_cols, cv_models[f'model_{i}'], True, True, True)
         
         sub_df = prepare_submission_data(test_df, primary_preds, target_cols, pred_cols)
-        # sub_df = fossil_preproc.adjust_expanded_dates(sub_df)
         _, pred_dates = prepare_test_dates(test_df) 
 
         sub_df['month'] = pd.DataFrame(pred_dates*int(len(sub_df)/ModelsConfig.N_STEPS)).loc[:, 0].values
         sub_df['year'] = pd.DataFrame(pred_dates*int(len(sub_df)/ModelsConfig.N_STEPS)).loc[:, 1].values
-        test_preds[f'primary_{i}'] = sub_df['preds'].values
+        test_preds[f'preds_{i}'] = sub_df['preds'].values
         
         cols = ['preds', 'time_step', 'month', 'year', 'pred_month', 'pred_year']
         meta_features = [c for c in sub_df.columns if 'lag' in c or c in cols]
@@ -93,19 +92,9 @@ def make_predictions(test_df, test_data, feature_cols, target_cols, pred_cols, c
         
         for j in range(len(ModelsConfig.models)-1):
             secondary_preds = gbdt_models.forecast(sub_df, meta_features, meta_targets, 
-                                                    cv_models[f'secondary_{i}_{j}'], True, False, False)
+                                                    cv_models[f'model_{i}_{j}'], True, False, False)
             
-            test_preds[f'secondary_{i}_{j}'] = secondary_preds['Target'].values      
-            sub_df['preds_'] = secondary_preds['Target']
-            
-            cols = ['preds_', 'preds', 'time_step', 'month', 'year', 'pred_month', 'pred_year']        
-            meta_features_ = [c for c in sub_df.columns if 'lag' in c or c in cols]
-            
-            for k in range(len(ModelsConfig.models)-2):
-                tertiary_preds = gbdt_models.forecast(sub_df, meta_features_, meta_targets, 
-                                                        cv_models[f'tertiary_{i}_{k}'], True, False, False)
-
-                test_preds[f'tertiary_{i}_{k}'] = tertiary_preds['Target'].values
+            test_preds[f'preds_{i}_{j}'] = secondary_preds['Target'].values  
 
     y_pred = np.transpose(np.concatenate([[v] for v in test_preds.values()]), (1,0)).mean(1)
     sub_df['Target'] = y_pred
