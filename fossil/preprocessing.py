@@ -1,3 +1,5 @@
+from ast import Return
+import pickle
 import pandas as pd
 import numpy as np
 
@@ -39,10 +41,18 @@ def _add_fourier_series(df: pd.DataFrame):
     return df
 
 class LabelEncoder:
-    def __init__(self, items) -> None:
+    def __init__(self, items=None, save_path=None) -> None:
         self.items = items
+        self.save_path = save_path
+
+
+        if self.items is not None:
+            self.items = {item:ix for ix,item in enumerate(self.items)}
+        
+        else:
+            assert self.save_path is not None, 'Please specify items to encode'
+            self.items = self.load_saved_items(self.save_path)
         self.size = int(len(self.items))
-        self.items = {item:ix for ix,item in enumerate(self.items)}
 
     def __len__(self):
         return self.size
@@ -56,6 +66,14 @@ class LabelEncoder:
 
         return self.size
 
+    def save_items(self, save_path):
+        with open(save_path, 'wb') as f:
+            pickle.dump(self.items, f)
+
+    def load_saved_items(self, save_path):
+        with open(save_path, 'rb') as f:
+            return pickle.load(f)
+            
     def decode(self, ix):
         pass
 
@@ -240,23 +258,17 @@ class FossilPreprocessor(FossilData):
         df[relative_cols] = df.groupby(['month','year'])[rel_feat_cols].apply(lambda x: x/x.median())
         return df.replace([np.inf, -np.inf], np.nan)
 
-    def sort_dates(self, data:pd.DataFrame, inference:bool):
+    def sort_dates(self, data:pd.DataFrame):
         """Helper function to sort dates in ascending order"""
         df = data.copy()
 
         dates_unsorted = [(m, y) for y,m in df.groupby(['year', 'month']).groups.keys()]
 
-        if inference:
-            return sorted(dates_unsorted, key=lambda d: (d[1], d[0]))
-
         return sorted(dates_unsorted, key=lambda d: (d[1], d[0]))
 
-    def prepare_primary_data(self, data:pd.DataFrame, inference:bool=False):
+    def prepare_primary_data(self, data:pd.DataFrame, dates:list, inference:bool=False, store_path:str=None):
         """Helper function to prepare data for the base model"""
         df = data.copy()
-
-        df = self.extract_relative_features(df)
-        dates = self.sort_dates(df, inference)
         
         feature_cols = [c for c in df.columns if c not in ['sku_name', 'month', 'year']
                     and all(l not in c for l in ['target', 'channel','rel'])]
@@ -267,13 +279,52 @@ class FossilPreprocessor(FossilData):
         primary_data['sku_coded'] = primary_data['sku_name'].apply(self.encoder)
         primary_data = primary_data.groupby(['month','year']).progress_apply(self.emulate_missing).reset_index(drop=True)
         
-        cols_1 = [c for c in primary_data.columns if c not in ['sku_name','sku_coded']]
-        cols_2 = [c for c in primary_data.columns if c not in ['month','year', 'sku_name', 'sku_coded']]
-
-        primary_data[cols_1] = primary_data.groupby('sku_name')[cols_1].progress_transform(lambda x: x.fillna(x.median()))
-        primary_data[cols_2] = primary_data.groupby(['month','year'])[cols_2].progress_transform(lambda x: x.fillna(x.median()))
-        
         return primary_data
+
+    def impute_missing(self, data:pd.DataFrame, inference:bool, store_path:str=None):
+        df = data.copy()
+
+        assert store_path is not None, 'save location for imputing values not specified'
+
+        if not inference:
+            cols_1 = [c for c in df.columns if c not in ['sku_name','sku_coded']]
+            cols_2 = [c for c in df.columns if c not in ['month','year', 'sku_name', 'sku_coded']]
+           
+            sku_imputes = df.groupby('sku_name')[cols_1].median().to_dict()
+            df = df.groupby('sku_name').progress_apply(lambda x: self.imputer(x, x.name, sku_imputes)).copy()
+            
+            date_imputes = df.groupby(['month','year'])[cols_2].median().to_dict()
+            df = df.groupby(['month','year']).progress_apply(lambda x: self.imputer(x, x.name, date_imputes))
+
+            self.save_items(f'{store_path}/sku_imputes.pkl', sku_imputes)
+            self.save_items(f'{store_path}/date_imputes.pkl', date_imputes)
+
+            return df
+
+        sku_imputes = self.load_saved_items(f'{store_path}/sku_imputes.pkl')
+        date_imputes = self.load_saved_items(f'{store_path}/date_imputes.pkl')
+
+        df = df.groupby('sku_name').progress_apply(lambda x: self.imputer(x, x.name, sku_imputes)).copy()
+        df = df.groupby(['month','year']).progress_apply(lambda x: self.imputer(x, x.name, date_imputes))
+
+        return df
+
+    def save_items(self, save_path, items):
+        with open(save_path, 'wb') as f:
+            pickle.dump(items, f)
+
+    def load_saved_items(self, save_path):
+        with open(save_path, 'rb') as f:
+            return pickle.load(f)
+            
+    def imputer(self, x, name, impute_dict):
+        for col in [c for c in x.columns if c not in ['month', 'year', 'sku_name', 'sku_coded']]:
+            try:
+                x[col] = x[col].fillna(impute_dict[col][name])
+            except KeyError:
+                continue
+    
+        return x
 
     def pca_feature_selection(self, data:pd.DataFrame, num_components: int=None, eda: bool=False):
         """

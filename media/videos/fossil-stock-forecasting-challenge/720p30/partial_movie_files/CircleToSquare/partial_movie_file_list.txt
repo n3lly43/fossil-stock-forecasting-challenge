@@ -1,5 +1,0 @@
-# This file is used internally by FFMPEG.
-file 'file:/home/n3lly43/Documents/in_progress/Misc/Fossil/fossil-stock-forecasting-challenge/media/videos/fossil-stock-forecasting-challenge/720p30/partial_movie_files/CircleToSquare/1342159004_1025483344_223132457.mp4'
-file 'file:/home/n3lly43/Documents/in_progress/Misc/Fossil/fossil-stock-forecasting-challenge/media/videos/fossil-stock-forecasting-challenge/720p30/partial_movie_files/CircleToSquare/1353618911_329969645_2885464691.mp4'
-file 'file:/home/n3lly43/Documents/in_progress/Misc/Fossil/fossil-stock-forecasting-challenge/media/videos/fossil-stock-forecasting-challenge/720p30/partial_movie_files/CircleToSquare/1353618911_3059206120_2651676735.mp4'
-file 'file:/home/n3lly43/Documents/in_progress/Misc/Fossil/fossil-stock-forecasting-challenge/media/videos/fossil-stock-forecasting-challenge/720p30/partial_movie_files/CircleToSquare/1353618911_329969645_3990645117.mp4'

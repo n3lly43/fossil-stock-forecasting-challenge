@@ -29,16 +29,14 @@ def prepare_test_dates(data:pd.DataFrame):
     return test_dates, [(m+n,yr) if m+n<=12 else (m+n-12, yr+1) for n in range(1,ModelsConfig.N_STEPS+1)]
 
 def prepare_test_context(
-        train_data:pd.DataFrame, 
+        latest_data:pd.DataFrame, 
         test_data:pd.DataFrame, 
         preprocessor:FossilPreprocessor
         ):
     """
     Prepare context data and window for predictions
     """
-    df = train_data.copy()
-    context = preprocessor.extract_relative_features(df)
-
+    context = latest_data.copy()
     test_dates, _ = prepare_test_dates(test_data)
 
     test_sku = test_data.sku_name.unique()
@@ -76,8 +74,8 @@ def make_predictions(test_df, test_data, feature_cols, target_cols, pred_cols, c
     gbdt_models = FossilGBDT()
     test_preds = {}
 
-    for i in range(len(ModelsConfig.models)):
-        primary_preds = gbdt_models.forecast(test_data, feature_cols, target_cols, cv_models[f'model_{i}'], True, True, True)
+    for i,base_model in enumerate(ModelsConfig.models):
+        primary_preds = gbdt_models.forecast(test_data, feature_cols, target_cols, cv_models[f'model_{i}_{base_model}_base'], True, True, True)
         
         sub_df = prepare_submission_data(test_df, primary_preds, target_cols, pred_cols)
         _, pred_dates = prepare_test_dates(test_df) 
@@ -90,9 +88,9 @@ def make_predictions(test_df, test_data, feature_cols, target_cols, pred_cols, c
         meta_features = [c for c in sub_df.columns if 'lag' in c or c in cols]
         meta_targets = 'Target'
         
-        for j in range(len(ModelsConfig.models)-1):
+        for j,meta_learner in enumerate([m for m in ModelsConfig.models if m!=base_model]):
             secondary_preds = gbdt_models.forecast(sub_df, meta_features, meta_targets, 
-                                                    cv_models[f'model_{i}_{j}'], True, False, False)
+                                                    cv_models[f'model_{i}_{j}_{meta_learner}'], True, False, False)
             
             test_preds[f'preds_{i}_{j}'] = secondary_preds['Target'].values  
 
