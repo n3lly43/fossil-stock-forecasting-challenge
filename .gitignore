@@ -170,6 +170,7 @@ build
 
 # 
 output
+media/
 
 # Models
 models/
