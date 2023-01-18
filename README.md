@@ -32,8 +32,6 @@ Along with the date(month and year) variables and lagged values of the target, i
 
 In order to improve performance of the base model, a Fourier series was extracted from the date variables. This was done to better represent the harmonic nature of the data and ensure the model accurately captures and learns the temporal patterns within the data. Relative values of the predictors were also extracted, together with the rolling median values in order to have a better representation of the relationship between demand and the variables of interest.
 
-![Figure 1.1 Starting Inventory and Price appear to be less correlated with demand](media/exploratory%20analysis.png)
-
 # Causal Modeling
 
 Unlike time series analysis and projection, the causal model tries to establish direct relationships between future demand and factors influencing it, which in this case is sell out. (Parthasarathy, 1994) suggests that critical factors related to demand need to be selected through analysis of past data and their effect quantified and expressed in the form of mathematical equations. These factors are then projected forward and the forecasted values are used as predictors in the causal model. This is the concept underlying the meta-leaner, where sell out forecasts at the final time step are used as predictors for the sell in variable at the corresponding time step. This model is represented as follows: 
