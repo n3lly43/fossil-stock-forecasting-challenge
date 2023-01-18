@@ -25,7 +25,7 @@ This model however requires several assumptions to be met in order for it to acc
 
 𝑋̂<sub>t</sub>= 𝑓(t,𝑋<sub>t-1</sub>,𝑌<sub>t-1</sub>) | 𝑌̂<sub>t</sub>= 𝑓(t,𝑌<sub>t-1</sub>)
 
-Where 𝑌<sub>t-1</sub> represents the value of the variable related to demand(sell out) at the previous time step and 𝑌̂𝑡 is the forecast value at the current/future time step and the model is trained recursively to forecast future values one time step at a time and using forecasts from previous time step as faetures for current time step.![Base Model Recursive Training](media/Recursive%20Training.jpg)
+Where 𝑌<sub>t-1</sub> represents the value of the variable related to demand(sell out) at the previous time step and 𝑌̂𝑡 is the forecast value at the current/future time step and the model is trained recursively to forecast future values one time step at a time and using forecasts from previous time step(s) as features for current time step.![Base Model Recursive Training](media/Recursive%20Training.jpg)
 
 # Feature Selection and Engineering
 Along with the date(month and year) variables and lagged values of the target, it was apparent from exploratory analysis of the data that on-hand inventory, leftover inventory, and sell out are correlated with demand. Furthermore, (Szabłowski, 2021) identifies sell out as a good predictor for sell in values. As such, the sell out variable together with the date and lagged sell in were selected as a predictors for demand in the model design. Moreover, since data from the separate channels is strongly correlated with the aggregated data, the channel variables were therefore excluded from the model.
