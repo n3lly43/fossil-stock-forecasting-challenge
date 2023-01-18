@@ -147,11 +147,12 @@ class FossilData:
         
         return df
 
-    def prepare_targets(self, data: pd.DataFrame, dates: list):
+    def prepare_targets(self, data: pd.DataFrame, dates: list, target_cols:list):
         df = data.copy()
 
         for step in range(ModelsConfig.N_STEPS):
-            df[f'target_{step}'] = df.sort_values(by=['year','month'])['sellin'].shift(-(step+1))
+            for col in target_cols:
+                df[f'{col}_target_{step}'] = df.sort_values(by=['year','month'])[col].shift(-(step+1))
         
         if ModelsConfig.LOOKBACK>1:
             target_cols = [f'target_{i}' for i in range(ModelsConfig.N_STEPS)]
@@ -185,12 +186,17 @@ class FossilData:
     def retrieve_unpadded_sequence(self, df, name, non_missing):
         return df[df[['month', 'year']].apply(tuple, axis=1).isin(non_missing[name])]
 
-class FossilPreprocessor(FossilData):
-    def __init__(
-            self, 
-            encoder: LabelEncoder,
-            data_split:float=0.9):
+    def save_items(self, save_path, items):
+        with open(save_path, 'wb') as f:
+            pickle.dump(items, f)
 
+    def load_saved_items(self, save_path):
+        with open(save_path, 'rb') as f:
+            return pickle.load(f)
+            
+class FossilPreprocessor(FossilData):
+    def __init__(self, encoder: LabelEncoder, data_split:float=0.9):
+        super(FossilPreprocessor, self).__init__(encoder)
         self.encoder = encoder
         self.data_split = data_split
 
@@ -198,7 +204,8 @@ class FossilPreprocessor(FossilData):
             self, 
             data: pd.DataFrame, 
             feat_cols: list, 
-            dates: list, 
+            dates: list,
+            target_cols:list, 
             return_padded: bool=False):
         """
         Extract features for the base model including fourier series 
@@ -208,6 +215,7 @@ class FossilPreprocessor(FossilData):
         data          -- DataFrame from which features are extracted
         feat_cols     -- list of columns from which rolling features are to be extracted
         dates         -- list of dates for which each product was available
+        target_cols   -- list of columns to be shifted and used as targets for training the models
         return_padded -- return padded DataFrame
         """
 
@@ -215,7 +223,7 @@ class FossilPreprocessor(FossilData):
         non_missing = {sku:[(m, y) for y,m in df[df['sku_name']==sku].groupby(['year', 'month']).groups.keys()] for sku in tqdm(df['sku_name'].unique())}
         
         df_pad = df.groupby('sku_name').progress_apply(self.pad_data, dates=dates).reset_index(drop=True)
-        df_targeted = df_pad.groupby('sku_name').progress_apply(self.prepare_targets, dates=dates).reset_index(drop=True)
+        df_targeted = df_pad.groupby('sku_name').progress_apply(self.prepare_targets, dates=dates, target_cols=target_cols).reset_index(drop=True)
         feature_df = self.extract_timeseries_features(df_targeted, feat_cols, window=[6,9])
         
         if not return_padded:
@@ -261,12 +269,15 @@ class FossilPreprocessor(FossilData):
     def sort_dates(self, data:pd.DataFrame):
         """Helper function to sort dates in ascending order"""
         df = data.copy()
+        # start_year, end_year = df['year'].astype(int).min(), df['year'].astype(int).max()
+        # dates_unsorted = [(m, y) for y in range(start_year, end_year+1, 1) 
+        #                 for m in range(1, 13, 1)]
 
         dates_unsorted = [(m, y) for y,m in df.groupby(['year', 'month']).groups.keys()]
 
         return sorted(dates_unsorted, key=lambda d: (d[1], d[0]))
 
-    def prepare_primary_data(self, data:pd.DataFrame, dates:list, inference:bool=False, store_path:str=None):
+    def prepare_primary_data(self, data:pd.DataFrame, dates:list, target_cols:list=['sellin']):
         """Helper function to prepare data for the base model"""
         df = data.copy()
         
@@ -274,7 +285,7 @@ class FossilPreprocessor(FossilData):
                     and all(l not in c for l in ['target', 'channel','rel'])]
 
         primary_data = df[df[['month','year']].apply(tuple, axis=1).isin(dates)].copy()        
-        primary_data = self.extract_primary_features(primary_data, feature_cols, dates)
+        primary_data = self.extract_primary_features(primary_data, feature_cols, dates, target_cols)
 
         primary_data['sku_coded'] = primary_data['sku_name'].apply(self.encoder)
         primary_data = primary_data.groupby(['month','year']).progress_apply(self.emulate_missing).reset_index(drop=True)
@@ -309,14 +320,6 @@ class FossilPreprocessor(FossilData):
 
         return df
 
-    def save_items(self, save_path, items):
-        with open(save_path, 'wb') as f:
-            pickle.dump(items, f)
-
-    def load_saved_items(self, save_path):
-        with open(save_path, 'rb') as f:
-            return pickle.load(f)
-            
     def imputer(self, x, name, impute_dict):
         for col in [c for c in x.columns if c not in ['month', 'year', 'sku_name', 'sku_coded']]:
             try:
@@ -336,7 +339,7 @@ class FossilPreprocessor(FossilData):
         eda            -- carry out exploratory analysis to identify appropriate number of components
         """
         df = data.copy()
-        features = [c for c in df.columns if all(l not in c for l in ['sku_name','sku_coded','target'])] 
+        features = [c for c in df.columns if all(l not in c for l in ['sku_name','sku_coded']) and 'target' not in c] 
 
         scaler = StandardScaler()
         scaled_features = scaler.fit_transform(df[features])
@@ -364,7 +367,7 @@ class FossilPreprocessor(FossilData):
         initial_feature_names = df[features].columns
         return list(set([initial_feature_names[most_important[i]] for i in range(n_pcs)]))
 
-    def expand_primary_data(self, data:pd.DataFrame, oof:pd.DataFrame, target_cols:list, pred_cols:list):
+    def expand_primary_data(self, data:pd.DataFrame, oof:pd.DataFrame, target_cols:list, pred_cols:list, target:str):
         """
         Expand data such that each product has observations equal to the number of time steps
         to be predicted and the targets are stacked vertically. This structure is used by the meta learner
@@ -375,6 +378,7 @@ class FossilPreprocessor(FossilData):
         oof         -- DataFrame containing OOF predictions from the base model
         target_cols -- list of target column names
         pred_cols   -- list of names assigned to columns containing predictions from the base model
+        target      -- name of column used as target
         """
         secondary_data = data.copy()
         secondary_data[pred_cols] = oof
@@ -385,15 +389,15 @@ class FossilPreprocessor(FossilData):
         data_cols = [c for c in secondary_data if c not in target_cols+pred_cols]
         expanded_data = secondary_data.loc[secondary_data.index.repeat(ModelsConfig.N_STEPS)][data_cols].reset_index(drop=True)
 
-        expanded_data['target'] = target_arr
-        expanded_data['preds'] = pred_arr
+        expanded_data[f'{target}_target'] = target_arr
+        expanded_data[f'{target}_preds'] = pred_arr
         expanded_data['time_step'] = expanded_data.groupby(['sku_name','month','year']).cumcount()
 
         return expanded_data
 
-    def prepare_secondary_data(self, data:pd.DataFrame, oof:pd.DataFrame, target_cols:list, pred_cols:list):
+    def prepare_secondary_data(self, data:pd.DataFrame, oof:pd.DataFrame, target_cols:list, pred_cols:list, target:str):
         """Helper function to prepare data for meta learner"""
-        expanded_data = self.expand_primary_data(data, oof, target_cols, pred_cols)
+        expanded_data = self.expand_primary_data(data, oof, target_cols, pred_cols, target)
 
         return self.adjust_expanded_dates(expanded_data)
 

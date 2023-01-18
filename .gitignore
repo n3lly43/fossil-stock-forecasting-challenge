@@ -170,7 +170,7 @@ build
 
 # 
 output
-media/
+# media/
 
 # Models
 models/
